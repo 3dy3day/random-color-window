@@ -1,0 +1,83 @@
+{
+  "name": "random-color-window",
+  "displayName": "Random Color Window",
+  "description": "Give each VS Code workspace window a memorable color identity.",
+  "version": "0.1.0",
+  "publisher": "daiki-local",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/3dy3day/random-color-window.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": ["Other", "Themes"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "check": "tsc --noEmit -p ./",
+    "package": "vsce package --allow-missing-repository"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "randomColorWindow.changeColor",
+        "title": "Change Window Color",
+        "category": "Random Color Window"
+      },
+      {
+        "command": "randomColorWindow.randomizeColor",
+        "title": "Pick a New Random Color",
+        "category": "Random Color Window"
+      },
+      {
+        "command": "randomColorWindow.resetColor",
+        "title": "Reset Window Color",
+        "category": "Random Color Window"
+      }
+    ],
+    "configuration": {
+      "title": "Random Color Window",
+      "properties": {
+        "randomColorWindow.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Color this workspace window automatically."
+        },
+        "randomColorWindow.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current color name in the status bar."
+        },
+        "randomColorWindow.color": {
+          "type": ["string", "null"],
+          "default": null,
+          "scope": "window",
+          "description": "The color assigned to this workspace. Managed automatically."
+        },
+        "randomColorWindow.colorName": {
+          "type": ["string", "null"],
+          "default": null,
+          "scope": "window",
+          "description": "The assigned preset name. Managed automatically."
+        },
+        "randomColorWindow.ownedThemeKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "scope": "window",
+          "description": "Theme keys managed by this extension."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.6.0",
+    "typescript": "^5.7.0"
+  }
+}
