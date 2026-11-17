@@ -1,3 +1,7 @@
+import { execFile } from "child_process";
+import { appendFile, mkdir, readFile } from "fs/promises";
+import * as path from "path";
+import { promisify } from "util";
 import * as vscode from "vscode";
 import { chooseRandom, PALETTE, WindowColor } from "./palette";
 
@@ -5,7 +9,39 @@ const COLOR_KEY = "randomColorWindow.color";
 const NAME_KEY = "randomColorWindow.colorName";
 const OWNER_KEY = "randomColorWindow.ownedThemeKeys";
 
+const SETTINGS_PATH = ".vscode/settings.json";
+
+const run = promisify(execFile);
+
 let status: vscode.StatusBarItem;
+
+// Workspace settings land in .vscode/settings.json. Hide that file through the
+// repository-local .git/info/exclude so no project needs a .gitignore entry.
+async function excludeSettingsFromGit(): Promise<void> {
+  if (vscode.workspace.workspaceFile) return; // Multi-root settings live in the .code-workspace file.
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (folder?.uri.scheme !== "file") return;
+  const cwd = folder.uri.fsPath;
+  const succeeds = (...args: string[]) => run("git", args, { cwd }).then(() => true, () => false);
+
+  try {
+    // Already ignored, or deliberately committed by the project: leave it alone.
+    if (await succeeds("check-ignore", "-q", SETTINGS_PATH)) return;
+    if (await succeeds("ls-files", "--error-unmatch", SETTINGS_PATH)) return;
+
+    const [{ stdout: prefix }, { stdout: excludePath }] = await Promise.all([
+      run("git", ["rev-parse", "--show-prefix"], { cwd }),
+      run("git", ["rev-parse", "--git-path", "info/exclude"], { cwd })
+    ]);
+    const file = path.resolve(cwd, excludePath.trim());
+    const existing = await readFile(file, "utf8").catch(() => "");
+    const separator = existing && !existing.endsWith("\n") ? "\n" : "";
+    await mkdir(path.dirname(file), { recursive: true });
+    await appendFile(file, `${separator}/${prefix.trim()}${SETTINGS_PATH}\n`);
+  } catch {
+    // Not a git repository, or git is unavailable.
+  }
+}
 
 function readableForeground(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
@@ -43,6 +79,7 @@ async function writeThemeColor(color: WindowColor): Promise<void> {
   const current = configuration.get<Record<string, string>>("workbench.colorCustomizations", {});
   const previouslyOwned = configuration.get<string[]>(OWNER_KEY, []);
   const entries = themeEntries(color);
+  await excludeSettingsFromGit();
 
   const next = { ...current };
   for (const key of previouslyOwned) delete next[key];
@@ -134,7 +171,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const expected = Object.keys(themeEntries({ value, name }));
   const stale = owned.length !== expected.length || expected.some((key) => !owned.includes(key));
   if (stale) await writeThemeColor({ value, name });
-  else updateStatus({ value, name });
+  else {
+    await excludeSettingsFromGit();
+    updateStatus({ value, name });
+  }
 }
 
 export function deactivate(): void {}
